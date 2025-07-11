@@ -1,4 +1,3 @@
-from enum import Enum
 from lark import Lark, Transformer, v_args
 from lark.lexer import Token
 import gurobipy as gp
@@ -38,24 +37,14 @@ GRAMMAR = """
 """
 
 
-class VType(Enum):
-    INTEGER = 'integer'
-    REAL = 'real'
-
-
-class Bound(Enum):
-    GEZ = '>=0'
-    LEZ = '<=0'
-    FREE = 'free'
-
-
 @v_args(inline=True)    # Affects the signatures of the methods
-class CalculateTree(Transformer):
+class AMPLTransformer(Transformer):
     from operator import add, sub, mul, neg, le, ge, eq
     number = float
 
     def __init__(self) -> None:
-        self.vars = {}
+        self.x: dict[str, gp.Var] = {}  # real variables
+        self.y: dict[str, gp.Var] = {}  # integer variables
         self.model = gp.Model()
 
     def decl_var(self, name: Token, domain: Token, bound: Token) -> None:
@@ -66,33 +55,38 @@ class CalculateTree(Transformer):
             '<=0': (-GRB.INFINITY, 0),
             '>=0': (0, GRB.INFINITY),
             'free': (-GRB.INFINITY, GRB.INFINITY),
-        }[bound]
-        self.vars[name] = self.model.addVar(lb, ub, name=name)
+        }[bound.value]
+        if domain == "real":
+            self.x[name.value] = self.model.addVar(lb, ub, name=name.value)
+        elif domain == "integer":
+            self.y[name.value] = self.model.addVar(lb, ub, name=name.value)
 
     def obj(self, goal: Token, expr: gp.LinExpr) -> None:
         # print("---obj---")
         # print(type(sense), type(expr))
         # print(sense, expr)
-        sense = {'minimize': GRB.MINIMIZE, 'maximize': GRB.MAXIMIZE}[goal]
+        sense = {'minimize': GRB.MINIMIZE, 'maximize': GRB.MAXIMIZE}[goal.value]
         self.model.setObjective(expr, sense)
 
     def st(self, cmp: gp.TempConstr) -> None:
         # print("---st---")
-        # print(type(lhs), type(cmp_op), type(rhs))
-        # print(lhs, cmp_op, rhs)
+        # print(type(cmp))
+        # print(cmp)
         self.model.addConstr(cmp)
 
     def var(self, name: Token) -> gp.Var:
         # print("---var---")
         # print(type(name))
         # print(name)
-        return self.vars[name]
+        return self.x[name.value] or self.y[name.value]
 
 
-def parse_text(text: str) -> gp.Model:
-    transformer = CalculateTree()
+def parse_text(
+    text: str
+) -> tuple[gp.Model, dict[str, gp.Var], dict[str, gp.Var]]:
+    transformer = AMPLTransformer()
     parser = Lark(GRAMMAR, parser='lalr', transformer=transformer)
     parser.parse(text)
-    return transformer.model
+    return transformer.model, transformer.x, transformer.y
     # for key, val in transformer.vars.items():
     #     print(f"{key}: {val}")

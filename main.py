@@ -9,12 +9,15 @@ def main() -> None:
     1*x2 <= 6;
     3*x1 + 2*x2 >= 18;"""
 
-    model = parse_text(text)
+    model, x, y = parse_text(text)
     model.optimize()
 
     for v in model.getVars():
-        print(f"{v.VarName} {v.X:g}")
+        print(f"{v.VarName}: {v.X:g}")
+        # print(f"is integer: {v.X.is_integer()}")
     print(f"Obj: {model.ObjVal:g}")
+    print(x)
+    print(y)
 
 
 if __name__ == "__main__":
