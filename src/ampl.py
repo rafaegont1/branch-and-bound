@@ -4,26 +4,25 @@ import gurobipy as gp
 from gurobipy import GRB
 
 GRAMMAR = """
-    ?start: variable+ objective constraint+
-    ?variable: "var" NAME VAR_DOMAIN VAR_BOUND ";" -> decl_var
-    ?objective: OBJ_GOAL ":" sum ";"               -> obj
-    ?constraint: cmp ";"                           -> st
+    ?start: variable_declaration+ objective constraint+
+    ?variable_declaration: "var" NAME VAR_DOMAIN VAR_BOUND ";" -> decl_var
+    ?objective: OBJ_GOAL ":" sum ";"                           -> obj
+    ?constraint: cmp ";"                                       -> st
 
-    ?cmp: sum "<=" sum      -> le
-        | sum ">=" sum      -> ge
-        | sum "=" sum       -> eq
+    ?cmp: sum "<=" number          -> le
+        | sum ">=" number          -> ge
+        | sum "=" number           -> eq
 
     ?sum: product
-        | sum "+" product   -> add
-        | sum "-" product   -> sub
+        | sum "+" product          -> add
+        | sum "-" product          -> sub
 
-    ?product: atom
-        | product "*" atom  -> mul
+    ?product: number "*" variable  -> mul
 
-    ?atom: NUMBER           -> number
-         | "-" atom         -> neg
-         | NAME             -> var
-         | "(" sum ")"
+    ?number: NUMBER                -> num
+           | "-" number            -> neg
+
+    ?variable: NAME                -> var
 
     VAR_DOMAIN: "integer" | "real"
     VAR_BOUND: "<=0" | ">=0" | "free"
@@ -40,7 +39,7 @@ GRAMMAR = """
 @v_args(inline=True)    # Affects the signatures of the methods
 class AMPLTransformer(Transformer):
     from operator import add, sub, mul, neg, le, ge, eq
-    number = float
+    num = float
 
     def __init__(self) -> None:
         self.x: dict[str, gp.Var] = {}  # real variables
