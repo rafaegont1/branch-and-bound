@@ -70,10 +70,9 @@ class AMPLTransformer(Transformer):
         # print(goal, expr)
         match goal.value:
             case 'minimize':
-                sense = GRB.MINIMIZE
+                self.model.setObjective(expr, GRB.MINIMIZE)
             case 'maximize':
-                sense = GRB.MAXIMIZE
-        self.model.setObjective(expr, sense)
+                self.model.setObjective(-expr, GRB.MINIMIZE)
 
     def st(self, cmp: gp.TempConstr) -> None:
         # print("---st---")

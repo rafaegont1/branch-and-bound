@@ -23,15 +23,20 @@ class BranchAndBound:
 
         # print("núm iter\t\t núm aval\t\tnúm ñ aval\t\tz iter\t\tação\t\tz ótim\t\ttempo (s)")
 
-        self.__iterate(model, int_var_names)
+        self.__iterate(model, int_var_names, 1)
 
         end_time = time()
         elapsed_time = end_time - start_time
-        print(f"elapsed time: {elapsed_time}")
+        print(f"elapsed time: {elapsed_time:.3f} s")
 
-    def __iterate(self, model: gp.Model, int_var_names: list[str]) -> None:
+    def __iterate(self,
+        model: gp.Model,
+        int_var_names: list[str],
+        node_id: int
+    ) -> None:
         self.iteration += 1
         print(f"-----> iteração nº: {self.iteration} <-----")
+        print(f"-----> node nº: {node_id} <-----")
 
         # Relaxação linear do subproblema
         model.optimize()
@@ -43,7 +48,7 @@ class BranchAndBound:
         y = [model.getVarByName(yi_name) for yi_name in int_var_names]
 
         # Poda por invibialidade
-        if model.Status == GRB.INFEASIBLE:
+        if model.Status != GRB.OPTIMAL:
             print(f"iteração {self.iteration}: poda por invibialidade")
         # Poda pelo limite
         elif model.ObjVal >= self.best_solution.z:
@@ -57,31 +62,19 @@ class BranchAndBound:
         # Nenhuma poda possível
         else:
             print(f"iteração {self.iteration}: nenhuma poda possível")
+
+            # Variável com maior resíduo: a variável inteira que assume valor
+            # fracionário e que a parte fracionária é mais próxima de 0.5 é
+            # escolhida para realizar a ramificação
             branch_var = min(y, key=lambda yi: abs((yi.X % 1) - 0.5))
+
             print(f"branching with: {branch_var}")
 
             left_branch = self.__new_branch(model, branch_var, 'left')
-            self.__iterate(left_branch, int_var_names)
+            self.__iterate(left_branch, int_var_names, node_id + 1)
 
             right_branch = self.__new_branch(model, branch_var, 'right')
-            self.__iterate(right_branch, int_var_names)
-
-            # left_branch = model.copy()
-            # left_branch.presolve()
-            # left_branch_var = left_branch.getVarByName(branch_var.VarName)
-            # print(f"left_branch_var: {left_branch_var}")
-            # # left_branch.addConstr(left_branch_var <= branch_var.X)
-            # left_branch_var.setAttr('UB', floor(branch_var.X))
-            # print(f"var: {left_branch.getVarByName(branch_var.VarName)}")
-            # print(f"floor: {floor(branch_var.X)}")
-            # # left_branch_var.UB = floor(branch_var.X)
-            # print(f"left UB: {left_branch_var.UB}")
-            # # self.__iterate(left_branch, int_var_names)
-
-            # right_branch = model.copy()
-            # right_branch_var = right_branch.getVarByName(branch_var.VarName)
-            # right_branch.addConstr(right_branch_var >= branch_var.X)
-            # self.__iterate(right_branch, int_var_names)
+            self.__iterate(right_branch, int_var_names, node_id + 2)
 
     def __new_branch(self,
         parent: gp.Model,
@@ -94,18 +87,11 @@ class BranchAndBound:
         match side:
             case 'left':
                 child_var.UB = floor(parent_var.X)
-                print(f"criando novo branch a partir da variável `{parent_var.VarName}` com valor `{floor(parent_var.X)}`")
+                print(f"criando novo branch a partir da variável com `{parent_var.VarName} <= {floor(parent_var.X)}`")
             case 'right':
                 child_var.LB = ceil(parent_var.X)
-                print(f"criando novo branch a partir da variável `{parent_var.VarName}` com valor `{ceil(parent_var.X)}`")
+                print(f"criando novo branch a partir da variável `{parent_var.VarName} >= {ceil(parent_var.X)}`")
             case _:
                 raise ValueError(f"undefined `{side}` child")
 
         return child
-
-    # def __new_branch_bounds(self, y: list[gp.Var]) -> tuple[str, float, float]:
-    #     # Variável com maior resíduo: a variável inteira que assume valor
-    #     # fracionário e que a parte fracionária é mais próxima de 0.5 é
-    #     # escolhida para realizar a ramificação
-    #     branch_var = min(y, key=lambda yi: abs((yi.X % 1) - 0.5))
-    #     return branch_var.VarName, floor(branch_var.X), ceil(branch_var.X)
