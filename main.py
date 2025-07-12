@@ -1,16 +1,20 @@
 from src.branch_and_bound import BranchAndBound
 from src.ampl import parse_text
+import sys
 
 
 def main() -> None:
-    text = """var x1 integer >=0;
-    var x2 integer >=0;
-    maximize: 5*x1 + 8*x2;
-    subject to: 1*x1 + 1*x2 <= 6;
-    subject to: 5*x1 + 9*x2 <= 45;
-    end;"""
+    if len(sys.argv) != 2:
+        raise ValueError(f"usage: {sys.argv[0]} <ampl_file>")
+    # text = """var x1 integer >=0;
+    # var x2 integer >=0;
+    # maximize: 5*x1 + 8*x2;
+    # subject to: 1*x1 + 1*x2 <= 6;
+    # subject to: 5*x1 + 9*x2 <= 45;
+    # end;"""
 
-    model, int_var_names = parse_text(text)
+    filename = sys.argv[1]
+    model, int_var_names = parse_text(filename)
 
     # model.presolve()
     # print(f"vars1: {model.getVars()}")

@@ -87,7 +87,9 @@ class AMPLTransformer(Transformer):
         return self.vars[name.value]
 
 
-def parse_text(text: str) -> tuple[gp.Model, list[str]]:
+def parse_text(filename: str) -> tuple[gp.Model, list[str]]:
+    with open(filename, encoding='utf-8') as file:
+        text = file.read()
     transformer = AMPLTransformer()
     parser = Lark(GRAMMAR, parser='lalr', transformer=transformer)
     parser.parse(text)
