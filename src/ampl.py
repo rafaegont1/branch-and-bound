@@ -4,10 +4,10 @@ import gurobipy as gp
 from gurobipy import GRB
 
 GRAMMAR = """
-    ?start: variable_declaration+ objective constraint+
+    ?start: variable_declaration+ objective constraint+ "end;"
     ?variable_declaration: "var" NAME VAR_DOMAIN VAR_BOUND ";" -> decl_var
     ?objective: OBJ_GOAL ":" sum ";"                           -> obj
-    ?constraint: cmp ";"                                       -> st
+    ?constraint: "subject to:" cmp ";"                         -> st
 
     ?cmp: sum "<=" number          -> le
         | sum ">=" number          -> ge
@@ -66,8 +66,8 @@ class AMPLTransformer(Transformer):
 
     def obj(self, goal: Token, expr: gp.LinExpr) -> None:
         # print("---obj---")
-        # print(type(sense), type(expr))
-        # print(sense, expr)
+        # print(type(goal), type(expr))
+        # print(goal, expr)
         match goal.value:
             case 'minimize':
                 sense = GRB.MINIMIZE
