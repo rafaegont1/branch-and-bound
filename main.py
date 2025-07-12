@@ -1,6 +1,17 @@
 from src.branch_and_bound import BranchAndBound
 from src.ampl import parse_text
 import sys
+import gurobipy as gp
+
+
+def config_gurobi(model: gp.Model) -> None:
+    model.Params.Threads = 1         # Limita o número de threads
+    model.Params.Method = 0          # Força o uso do Simplex
+    model.Params.DualReductions = 0  # Para saber se a solução foi ilimitada
+    model.Params.Presolve = 0        # Desativa pré-processamento
+    model.Params.CutPasses = 0       # Desativa geração de cortes
+    model.Params.Cuts = 0            # Desativa geração de cortes
+    model.Params.Heuristics = 0      # Desativa heurísticas
 
 
 def main() -> None:
@@ -15,6 +26,7 @@ def main() -> None:
 
     filename = sys.argv[1]
     model, int_var_names = parse_text(filename)
+    config_gurobi(model)
 
     # model.presolve()
     # print(f"vars1: {model.getVars()}")
@@ -32,7 +44,13 @@ def main() -> None:
 
     b_and_b = BranchAndBound()
     b_and_b.optimize(model, int_var_names)
-    print(f"best solution: {b_and_b.best_solution}")
+    if b_and_b.best_solution.z == float('inf'):
+        if b_and_b.there_is_unbounded_solution:
+            print("solução sem limites")
+        else:
+            print("não existe solução ótima")
+    else:
+        print(f"best solution: {b_and_b.best_solution}")
 
 
 if __name__ == "__main__":

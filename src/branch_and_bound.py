@@ -15,11 +15,13 @@ class BranchAndBound:
     def __init__(self) -> None:
         self.best_solution = Solution({}, float('inf'))
         self.iteration = 0
+        self.there_is_unbounded_solution = False
 
     def optimize(self, model: gp.Model, int_var_names: list[str]) -> None:
         start_time = time()
         self.best_solution = Solution({}, float('inf'))
         self.iteration = 0
+        self.there_is_unbounded_solution = False
 
         # print("núm iter\t\t núm aval\t\tnúm ñ aval\t\tz iter\t\tação\t\tz ótim\t\ttempo (s)")
 
@@ -50,6 +52,8 @@ class BranchAndBound:
         # Poda por invibialidade
         if model.Status != GRB.OPTIMAL:
             print(f"iteração {self.iteration}: poda por invibialidade")
+            if model.Status == GRB.UNBOUNDED:
+                self.there_is_unbounded_solution = True
         # Poda pelo limite
         elif model.ObjVal >= self.best_solution.z:
             print(f"iteração {self.iteration}: poda pelo limite")
