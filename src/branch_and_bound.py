@@ -14,11 +14,11 @@ class Table:
         self.reset()
 
     def reset(self) -> None:
-        self.__lines = []
+        self.__rows = []
         self.fmt = ""
-        self.__reset_line()
+        self.__reset_row()
 
-    def __reset_line(self) -> None:
+    def __reset_row(self) -> None:
         self.iter: int | None = None
         self.eval: int | None = None
         self.not_eval: int | None = None
@@ -27,13 +27,13 @@ class Table:
         self.z_optm: str | None = None  # deve ser string para colocar o `*`
         self.elapsed_time: float | None = None
 
-    def add_line(self) -> None:
-        self.__lines.append([self.iter, self.eval, self.not_eval, self.z_iter,
+    def add_row(self) -> None:
+        self.__rows.append([self.iter, self.eval, self.not_eval, self.z_iter,
             self.action, self.z_optm, self.elapsed_time])
-        self.__reset_line()
+        self.__reset_row()
 
     def print(self) -> None:
-        table = tabulate(self.__lines, headers=self.headers,
+        table = tabulate(self.__rows, headers=self.headers,
             tablefmt=self.fmt, floatfmt='.4f')
         print(table)
 
@@ -56,6 +56,7 @@ class BranchAndBound:
         self.iterations = 0
         self.there_is_unbounded_solution = False
         self.start_time = time()
+        self.total_time = 0.0
 
     def optimize(self, root: gp.Model, int_var_names: list[str]) -> None:
         self.__reset()
@@ -66,26 +67,8 @@ class BranchAndBound:
             node = self.nodes.get()
             self.__iterate(node, int_var_names)
 
-        elapsed_time = time() - self.start_time
-
-        self.table.fmt = "grid"
-        self.table.print()
-        self.table.reset()
-
-        # Imprime o valor da função objetivo
-        if self.best_solution.z == float('inf'):
-            if self.there_is_unbounded_solution:
-                print("Solução ótima ilimitada")
-            else:
-                print("Problema inviável")
-        else:
-            print(f"Solução ótima (z): {self.__fix_signal(self.best_solution.z):.4f}")
-            print("Valor das variáveis de decisão:")
-            for var_name, var_value in self.best_solution.x.items():
-                print(f"-> {var_name}: {var_value}")
-
-        print(f"Número de iterações realizadas: {self.iterations}")
-        print(f"Tempo total de execução: {elapsed_time:.4f} s")
+        self.total_time = time() - self.start_time
+        self.__print()
 
     def __iterate(self, node: gp.Model, int_var_names: list[str]) -> None:
         best_solution_improved = False
@@ -138,7 +121,7 @@ class BranchAndBound:
         elif self.best_solution.z != float('inf'):
             self.table.z_optm = f'{self.__fix_signal(self.best_solution.z):.4f}'
         self.table.elapsed_time = time() - self.start_time
-        self.table.add_line()
+        self.table.add_row()
 
     def __new_branch(
         self,
@@ -168,3 +151,23 @@ class BranchAndBound:
         # Inverte o sinal se o problema for de maximização (eu fiz isso porque
         # estou considerando todos os problemas como de minimização)
         return -num if self.is_maximize else num
+
+    def __print(self) -> None:
+        self.table.fmt = "grid"
+        self.table.print()
+        self.table.reset()
+
+        # Imprime o valor da função objetivo
+        if self.best_solution.z == float('inf'):
+            if self.there_is_unbounded_solution:
+                print("Solução ótima ilimitada")
+            else:
+                print("Problema inviável")
+        else:
+            print(f"Solução ótima (z): {self.__fix_signal(self.best_solution.z):.4f}")
+            print("Valor das variáveis de decisão:")
+            for var_name, var_value in self.best_solution.x.items():
+                print(f"-> {var_name}: {var_value:.4f}")
+
+        print(f"Número de iterações realizadas: {self.iterations}")
+        print(f"Tempo total de execução: {self.total_time:.4f} s")
