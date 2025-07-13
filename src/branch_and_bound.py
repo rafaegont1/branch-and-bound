@@ -1,3 +1,4 @@
+from queue import Queue
 from math import floor, ceil
 from dataclasses import dataclass
 from time import time
@@ -13,69 +14,75 @@ class Solution:
 
 class BranchAndBound:
     def __init__(self) -> None:
+        self.nodes = Queue()
+        self.__reset()
+
+    def __reset(self) -> None:
         self.best_solution = Solution({}, float('inf'))
         self.iteration = 0
         self.there_is_unbounded_solution = False
 
-    def optimize(self, model: gp.Model, int_var_names: list[str]) -> None:
+    def optimize(self, root: gp.Model, int_var_names: list[str]) -> None:
+        self.__reset()
         start_time = time()
-        self.best_solution = Solution({}, float('inf'))
-        self.iteration = 0
-        self.there_is_unbounded_solution = False
 
         print("iter\t\taval\t\tñ aval\t\tz iter\t\tação\t\tz ótim\t\ttempo (s)")
+        self.nodes.put(root)
 
-        self.__iterate(model, int_var_names)
+        while not self.nodes.empty():
+            node = self.nodes.get()
+            self.__iterate(node, int_var_names)
 
         end_time = time()
         elapsed_time = end_time - start_time
         print(f"elapsed time: {elapsed_time:.3f} s")
 
-    def __iterate(self, model: gp.Model, int_var_names: list[str]) -> None:
+    def __iterate(self, node: gp.Model, int_var_names: list[str]) -> None:
         self.iteration += 1
         print(self.iteration, end='\t\t')
         print("TODO", end='\t\t')  # TODO: nodes avaliados
         print("TODO", end='\t\t')  # TODO: nodes não avaliados
 
         # Relaxação linear do subproblema
-        model.optimize()
-        if model.Status == GRB.OPTIMAL:
-            print(f"{model.ObjVal:.2f}", end='\t\t')
+        node.optimize()
+
+        if node.Status == GRB.OPTIMAL:
+            print(f"{node.ObjVal:.2f}", end='\t\t')
         else:
             print("None", end='\t\t')
+
         # Variáveis que devem ser inteiras
-        y = [model.getVarByName(yi_name) for yi_name in int_var_names]
+        y = [node.getVarByName(yi_name) for yi_name in int_var_names]
 
         # Poda por invibialidade
-        if model.Status != GRB.OPTIMAL:
+        if node.Status != GRB.OPTIMAL:
             print("I")
-            if model.Status == GRB.UNBOUNDED:
+            if node.Status == GRB.UNBOUNDED:
                 self.there_is_unbounded_solution = True
         # Poda pelo limite
-        elif model.ObjVal >= self.best_solution.z:
+        elif node.ObjVal >= self.best_solution.z:
             print("L")
         # Poda por otimalidade
         elif all(yi.X.is_integer() for yi in y):
             print("O")
-            if model.ObjVal < self.best_solution.z:
-                self.best_solution.x = {v.VarName: v.X for v in model.getVars()}
-                self.best_solution.z = model.ObjVal
+            if node.ObjVal < self.best_solution.z:
+                self.best_solution.x = {v.VarName: v.X for v in node.getVars()}
+                self.best_solution.z = node.ObjVal
         # Nenhuma poda possível
         else:
             print("D")
 
-            # Variável com maior resíduo: a variável inteira que assume valor
-            # fracionário e que a parte fracionária é mais próxima de 0.5 é
-            # escolhida para realizar a ramificação
+            # Variável com maior resíduo
             branch_var = min(y, key=lambda yi: abs((yi.X % 1) - 0.5))
 
-            left_branch = self.__new_branch(model, branch_var, 'left')
-            self.__iterate(left_branch, int_var_names)
+            left_child = self.__new_branch(node, branch_var, 'left')
+            self.nodes.put(left_child)
 
-            right_branch = self.__new_branch(model, branch_var, 'right')
-            self.__iterate(right_branch, int_var_names)
+            right_child = self.__new_branch(node, branch_var, 'right')
+            self.nodes.put(right_child)
 
-    def __new_branch(self,
+    def __new_branch(
+        self,
         parent: gp.Model,
         parent_var: gp.Var,
         side: str
