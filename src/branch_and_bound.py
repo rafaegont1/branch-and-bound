@@ -9,8 +9,8 @@ from tabulate import tabulate
 
 class Table:
     def __init__(self) -> None:
-        self.headers = ['Iter', 'Nós aval', 'Nós ñ aval', 'z da iter', 'Ação',
-            'z ótimo', 'tempo (s)']
+        self.headers = ['Iter nº', 'Nós aval', 'Nós ñ aval', 'z da iter',
+            'Ação', 'z ótimo', 'tempo (s)']
         self.reset()
 
     def reset(self) -> None:
@@ -45,14 +45,15 @@ class Solution:
 
 
 class BranchAndBound:
-    def __init__(self) -> None:
+    def __init__(self, is_maximize: bool) -> None:
+        self.is_maximize = is_maximize
         self.nodes = Queue()
         self.table = Table()
         self.__reset()
 
     def __reset(self) -> None:
         self.best_solution = Solution({}, float('inf'))
-        self.iteration = 0
+        self.iterations = 0
         self.there_is_unbounded_solution = False
         self.start_time = time()
 
@@ -71,21 +72,32 @@ class BranchAndBound:
         self.table.print()
         self.table.reset()
 
-        print(f"elapsed time: {elapsed_time:.4f} s")
+        # Imprime o valor da função objetivo
+        if self.best_solution.z == float('inf'):
+            if self.there_is_unbounded_solution:
+                print("Solução ótima ilimitada")
+            else:
+                print("Problema inviável")
+        else:
+            print(f"Solução ótima (z): {self.__fix_signal(self.best_solution.z):.4f}")
+            print("Valor das variáveis de decisão:")
+            for var_name, var_value in self.best_solution.x.items():
+                print(f"-> {var_name}: {var_value}")
+
+        print(f"Número de iterações realizadas: {self.iterations}")
+        print(f"Tempo total de execução: {elapsed_time:.4f} s")
 
     def __iterate(self, node: gp.Model, int_var_names: list[str]) -> None:
         best_solution_improved = False
-        self.iteration += 1
-
-        self.table.iter = self.iteration
-        self.table.eval = self.iteration
-        self.table.not_eval = self.nodes.qsize()
+        self.iterations += 1
+        self.table.iter = self.iterations
 
         # Relaxação linear do subproblema
         node.optimize()
 
+        # Adiciona o valor da funça o objetivo da relaxaça o linear à tabela
         if node.Status == GRB.OPTIMAL:
-            self.table.z_iter = node.ObjVal
+            self.table.z_iter = self.__fix_signal(node.ObjVal)
 
         # Variáveis que devem ser inteiras
         y = [v for name in int_var_names if (v := node.getVarByName(name)) is not None]
@@ -118,10 +130,13 @@ class BranchAndBound:
             right_child = self.__new_branch(node, branch_var, 'right')
             self.nodes.put(right_child)
 
+        # Adiciona informações da iteração à tabela
+        self.table.eval = self.iterations
+        self.table.not_eval = self.nodes.qsize()
         if best_solution_improved:
-            self.table.z_optm = f'*{self.best_solution.z:.4f}'
+            self.table.z_optm = f'*{self.__fix_signal(self.best_solution.z):.4f}'
         elif self.best_solution.z != float('inf'):
-            self.table.z_optm = f'{self.best_solution.z:.4f}'
+            self.table.z_optm = f'{self.__fix_signal(self.best_solution.z):.4f}'
         self.table.elapsed_time = time() - self.start_time
         self.table.add_line()
 
@@ -148,3 +163,8 @@ class BranchAndBound:
                 raise ValueError(f"undefined `{side}` child")
 
         return child
+
+    def __fix_signal(self, num: int | float) -> int | float:
+        # Inverte o sinal se o problema for de maximização (eu fiz isso porque
+        # estou considerando todos os problemas como de minimização)
+        return -num if self.is_maximize else num

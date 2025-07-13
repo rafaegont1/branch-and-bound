@@ -25,7 +25,7 @@ def main() -> None:
     # end;"""
 
     filename = sys.argv[1]
-    model, int_var_names = parse_text(filename)
+    model, int_var_names, is_maximize = parse_text(filename)
     config_gurobi(model)
 
     # model.presolve()
@@ -42,15 +42,8 @@ def main() -> None:
     #     # print(f"is integer: {v.X.is_integer()}")
     # print(f"z: {model.ObjVal:g}")
 
-    b_and_b = BranchAndBound()
+    b_and_b = BranchAndBound(is_maximize)
     b_and_b.optimize(model, int_var_names)
-    if b_and_b.best_solution.z == float('inf'):
-        if b_and_b.there_is_unbounded_solution:
-            print("solução sem limites")
-        else:
-            print("não existe solução ótima")
-    else:
-        print(f"best solution: {b_and_b.best_solution}")
 
 
 if __name__ == "__main__":

@@ -45,11 +45,9 @@ class AMPLTransformer(Transformer):
         self.vars: dict[str, gp.Var] = {}
         self.int_var_names: list[str] = []
         self.model = gp.Model()
+        self.is_maximize = False
 
     def decl_var(self, name: Token, domain: Token, bound: Token) -> None:
-        # print("---decl_var---")
-        # print(type(name), type(vtype), type(bound))
-        # print(name, vtype, bound)
         match bound.value:
             case '<=0':
                 lb, ub = (-GRB.INFINITY, 0)
@@ -59,39 +57,37 @@ class AMPLTransformer(Transformer):
                 lb, ub = (-GRB.INFINITY, GRB.INFINITY)
 
         if domain.value == 'integer':
-            # Adicionar à lista de nomes de variáveis inteiras
+            # Adiciona à lista de nomes de variáveis inteiras (eu uso esta lista
+            # para verificar se as variáveis com estes nomes são inteiras dentro
+            # do branch and bound)
             self.int_var_names.append(name.value)
 
         self.vars[name.value] = self.model.addVar(lb, ub, name=name.value)
 
     def obj(self, goal: Token, expr: gp.LinExpr) -> None:
-        # print("---obj---")
-        # print(type(goal), type(expr))
-        # print(goal, expr)
+        # Se o problema for `maximize z`, eu passo para `minimize -z` (pois
+        # assim fica mais simples de implementar o branch and bound, igual ao
+        # pseudo-código que esta nos slides)
         match goal.value:
             case 'minimize':
                 self.model.setObjective(expr, GRB.MINIMIZE)
+                self.is_maximize = False
             case 'maximize':
                 self.model.setObjective(-expr, GRB.MINIMIZE)
+                self.is_maximize = True
 
     def st(self, cmp: gp.TempConstr) -> None:
-        # print("---st---")
-        # print(type(cmp))
-        # print(cmp)
         self.model.addConstr(cmp)
 
     def var(self, name: Token) -> gp.Var:
-        # print("---var---")
-        # print(type(name))
-        # print(name)
         return self.vars[name.value]
 
 
-def parse_text(filename: str) -> tuple[gp.Model, list[str]]:
+def parse_text(filename: str) -> tuple[gp.Model, list[str], bool]:
     with open(filename, encoding='utf-8') as file:
         text = file.read()
     transformer = AMPLTransformer()
     parser = Lark(GRAMMAR, parser='lalr', transformer=transformer)
     parser.parse(text)
 
-    return transformer.model, transformer.int_var_names
+    return transformer.model, transformer.int_var_names, transformer.is_maximize
