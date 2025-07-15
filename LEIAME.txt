@@ -1,0 +1,3 @@
+Para executar o programa, deve-se utilizar, no ambiente linux, `python3 main.py <filename>`, onde <filename> é o caminho para o arquivo de entrada.
+
+Eu usei o python (versão 3.11.2-1+b1) com as bibliotecas gurobipy (versão 12.0.2), lark (versão 1.2.2) e tabulate (versão 0.9.0). Para instalá-los, utilizar `pip install gurobipy lark tabulate`.
